@@ -22,6 +22,8 @@
 package cascading.operation.xml;
 
 import java.io.StringReader;
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.xpath.XPathConstants;
 import javax.xml.xpath.XPathExpressionException;
 
@@ -32,6 +34,7 @@ import cascading.operation.OperationException;
 import cascading.tuple.Fields;
 import cascading.tuple.Tuple;
 import org.apache.log4j.Logger;
+import org.w3c.dom.Document;
 import org.w3c.dom.NodeList;
 import org.xml.sax.InputSource;
 
@@ -74,15 +77,17 @@ public class XPathParser extends XPathOperation implements Function
 
   /** @see Function#operate(cascading.flow.FlowProcess,cascading.operation.FunctionCall) */
   public void operate( FlowProcess flowProcess, FunctionCall functionCall )
-    {
+  {
     Tuple tuple = new Tuple();
-    InputSource source = new InputSource( new StringReader( (String) functionCall.getArguments().get( 0 ) ) );
 
-    for( int i = 0; i < getExpressions().size(); i++ )
+    String docContents = (String) functionCall.getArguments().get( 0 );
+    Document document = parseXml(docContents);
+
+    for(int i = 0; i < getExpressions().size(); i++ )
       {
       try
         {
-        NodeList value = (NodeList) getExpressions().get( i ).evaluate( source, XPathConstants.NODESET );
+        NodeList value = (NodeList) getExpressions().get( i ).evaluate( document, XPathConstants.NODESET );
 
         if( LOG.isDebugEnabled() )
           LOG.debug( "xpath: " + paths[ i ] + " was: " + ( value != null && value.getLength() != 0 ) );
@@ -100,5 +105,17 @@ public class XPathParser extends XPathOperation implements Function
       }
 
     functionCall.getOutputCollector().add( tuple );
+  }
+
+  private Document parseXml(String docContents) {
+    InputSource inputSource = new InputSource(new StringReader(docContents));
+    try {
+      DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+      factory.setNamespaceAware(true);
+      DocumentBuilder documentBuilder = factory.newDocumentBuilder();
+      return documentBuilder.parse(inputSource);
+    } catch (Exception e) {
+      throw new RuntimeException(e);
     }
   }
+}
